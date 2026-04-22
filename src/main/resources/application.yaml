@@ -1,0 +1,17 @@
+ktor:
+    deployment:
+        port: 8080
+        host: 0.0.0.0
+    application:
+        modules:
+            - ApplicationKt.module
+
+jwt:
+    issuer: "https://hyampquwlvhawrbqxofi.supabase.co/auth/v1"
+    audience: "authenticated"
+    realm: "ktor-afel"
+    secret: "random_secret_testing"
+
+supabase:
+    url: "https://hyampquwlvhawrbqxofi.supabase.co"
+    key: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imh5YW1wcXV3bHZoYXdyYnF4b2ZpIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NjY4NzAwNSwiZXhwIjoyMDkyMjYzMDA1fQ.LqiJnQPK4R2CImBPwBVEeph497pTDPrz3o656eqNa_A"

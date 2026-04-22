@@ -1,0 +1,28 @@
+http://localhost:8080/api/v1/dosen
+
+{
+    "nama": "Dr. Eng. Afel Ganteng, S.T., M.T.",
+    "nidn": "0011223344",
+    "jabatan_fungsional": "Lektor Kepala",
+    "pangkat_golongan": "Pembina / IVa",
+    "email": "afel.dosen@prodi.ac.id",
+    "no_hp": "081234567890",
+    "foto_url": "https://hyampquwlvhawrbqxofi.supabase.co/storage/v1/object/public/prodi-files/dosen/default.jpg"
+}
+
+login
+
+{    "email": "admin@prodi.com",
+    "password": "admin12345"
+}
+
+nah disini bro saya mau buat website pengelolahan informasi d3 teknik listrik untuk mengelolah prodi informasi tersebut, nah saya disini fokus untuk membuat backend, nah alurnya itu dia client - ktor - supabase bro, disini ada 3 aktor dimana user, sebagai view saja yang dimana cuma melihat informasi di website bro, kalau admin, admin bisa mengelola dosen, tri dharma, fasilitas, statistik mahasiswa, jadwal kuliah, keahlian gitu. kalau dosen dia yang mengelola, publikasi, penelitian, pengabdian, buku ajar, hki, sertifikasi. itu bro. java saya yang saya pakai itu java 22.0.2, buat struktur foldernya saja dulu bro, dan hapus file file yang administration, city schema, databases itu bro, dan setting gradle dan versi yamlnya kalau perlu,  @key.md itu ditaruh di application.yaml bro, set up dulu semua dari gradle, dan struktur folder, ayo lakukan, kita test buat login dulu bro oke buat login dulu
+
+1.
+Modul Fasilitas (Admin: Multi-photo gallery).
+2.
+Modul Tri Dharma (Admin: Multi-photo gallery).
+3.
+Final Security Audit: Memastikan Admin tidak bisa masuk ke data privat Dosen secara ilegal (walaupun admin punya kuasa, kita harus kunci akses via role).
+4.
+Rate Limiting: Membatasi spam di endpoint upload.
