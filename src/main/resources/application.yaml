@@ -7,11 +7,11 @@ ktor:
             - ApplicationKt.module
 
 jwt:
-    issuer: "https://oprotjjjrsyxqumribxq.supabase.co/auth/v1"
-    audience: "authenticated"
-    realm: "ktor-afel"
-    secret: "random_secret_testing"
+    issuer: "${JWT_ISSUER:https://oprotjjjrsyxqumribxq.supabase.co/auth/v1}"
+    audience: "${JWT_AUDIENCE:authenticated}"
+    realm: "${JWT_REALM:ktor-afel}"
+    secret: "${JWT_SECRET:random_secret_testing}"
 
 supabase:
-    url: "https://oprotjjjrsyxqumribxq.supabase.co"
-    key: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9wcm90ampqcnN5eHF1bXJpYnhxIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzM5NzkwMiwiZXhwIjoyMDkyOTczOTAyfQ.bNvflgn0STdtZ_wzoCqtghxyzAjg-duPuC1KkEdMVSY"
+    url: "${SUPABASE_URL:https://oprotjjjrsyxqumribxq.supabase.co}"
+    key: "${SUPABASE_KEY:eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9wcm90ampqcnN5eHF1bXJpYnhxIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzM5NzkwMiwiZXhwIjoyMDkyOTczOTAyfQ.bNvflgn0STdtZ_wzoCqtghxyzAjg-duPuC1KkEdMVSY}"
