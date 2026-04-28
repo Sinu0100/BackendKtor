@@ -11,8 +11,8 @@ object SupabaseConfig {
     private var client: SupabaseClient? = null
 
     fun init(environment: ApplicationEnvironment): SupabaseClient {
-        val url = environment.config.property("supabase.url").getString()
-        val key = environment.config.property("supabase.key").getString()
+        val url = System.getenv("SUPABASE_URL") ?: environment.config.property("supabase.url").getString()
+        val key = System.getenv("SUPABASE_KEY") ?: environment.config.property("supabase.key").getString()
 
         client = createSupabaseClient(url, key) {
             install(Auth)

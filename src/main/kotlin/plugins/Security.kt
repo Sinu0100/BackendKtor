@@ -11,9 +11,9 @@ import presentation.dto.ApiResponse
 import java.util.Base64
 
 fun Application.configureSecurity() {
-    val jwtIssuer = environment.config.property("jwt.issuer").getString()
-    val jwtRealm = environment.config.property("jwt.realm").getString()
-    val jwtSecret = environment.config.property("jwt.secret").getString()
+    val jwtIssuer = System.getenv("JWT_ISSUER") ?: environment.config.property("jwt.issuer").getString()
+    val jwtRealm = System.getenv("JWT_REALM") ?: environment.config.property("jwt.realm").getString()
+    val jwtSecret = System.getenv("JWT_SECRET") ?: environment.config.property("jwt.secret").getString()
     
     val finalSecret = try {
         if (jwtSecret.contains("-") || jwtSecret.contains("_") || jwtSecret.length < 20) {
