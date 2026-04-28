@@ -22,5 +22,5 @@ EXPOSE $PORT
 # Copy the built shadow JAR from the builder stage
 COPY --from=builder /app/build/libs/*-all.jar ./app.jar
 
-# Run the jar file
-CMD ["java", "-jar", "app.jar"]
+# Run the jar file, reading Railway's PORT environment variable
+CMD ["sh", "-c", "java -jar app.jar -port=${PORT:-8080}"]

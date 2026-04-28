@@ -17,7 +17,6 @@ tasks.withType<com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar> {
     }
 }
 
-extra["mainClassName"] = "ApplicationKt"
 
 kotlin {
     jvmToolchain(17)
