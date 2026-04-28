@@ -12,6 +12,11 @@ fun Route.pengabdianRoutes(controller: PengabdianController) {
         get("/{id}") { controller.getById(call) }
 
         authenticate {
+            get("/my") {
+                call.withRole("dosen") {
+                    controller.getMyPengabdian(call)
+                }
+            }
             post {
                 call.withRole("admin", "dosen") {
                     controller.create(call)

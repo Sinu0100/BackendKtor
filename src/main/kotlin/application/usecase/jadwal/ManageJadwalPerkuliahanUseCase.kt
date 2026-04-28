@@ -35,9 +35,29 @@ class ManageJadwalPerkuliahanUseCase(
         return repository.create(jadwal)
     }
 
-    suspend fun updateJadwal(id: Int, jadwal: JadwalPerkuliahan, role: String?): JadwalPerkuliahan {
+    suspend fun updateJadwal(id: Int, jadwal: JadwalPerkuliahan, role: String?, fileBytes: ByteArray? = null, fileName: String? = null): JadwalPerkuliahan {
         if (role != "admin") throw Exception("FORBIDDEN: Hanya Admin yang dapat mengubah jadwal")
-        return repository.update(id, jadwal)
+        
+        val existing = repository.getById(id) ?: throw Exception("Jadwal tidak ditemukan")
+        
+        var finalFileUrl = existing.fileUrl
+        if (fileBytes != null && fileName != null) {
+            // HAPUS file lama dari storage
+            try {
+                manageMediaUseCase.deleteMediaByUrl(existing.fileUrl)
+            } catch (e: Exception) {
+                println("WARNING: Gagal hapus file jadwal lama: ${e.message}")
+            }
+            // Upload file baru
+            finalFileUrl = manageMediaUseCase.uploadFile("jadwal", fileName, fileBytes)
+        }
+        
+        val toUpdate = JadwalPerkuliahan(
+            namaJadwal = if (jadwal.namaJadwal.isNotEmpty()) jadwal.namaJadwal else existing.namaJadwal,
+            fileUrl = finalFileUrl
+        )
+        
+        return repository.update(id, toUpdate)
     }
 
     suspend fun deleteJadwal(id: Int, role: String?) {

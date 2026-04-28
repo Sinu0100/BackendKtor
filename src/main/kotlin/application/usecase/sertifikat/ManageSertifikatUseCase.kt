@@ -14,52 +14,67 @@ class ManageSertifikatUseCase(
 
     suspend fun getById(id: String): Sertifikat? = repository.getById(id)
 
-    suspend fun create(userId: String, sertifikat: Sertifikat, fileBytes: ByteArray?, fileName: String): Sertifikat {
+    suspend fun getMySertifikat(userId: String): List<Sertifikat> {
         val dosen = getDosenByUserId(userId)
-        var fileUrl = sertifikat.fileUrl
-        
-        if (fileBytes != null && fileBytes.size > 0) {
-            val media = manageMediaUseCase.uploadMediaBytes("sertifikat", "temp", fileName, fileBytes)
-            fileUrl = media.fileUrl
+        return repository.getByDosen(dosen.id!!)
+    }
+
+    suspend fun create(userId: String, sertifikat: Sertifikat, fileBytes: ByteArray?, fileName: String?): Sertifikat {
+        val dosen = getDosenByUserId(userId)
+        val id = java.util.UUID.randomUUID().toString()
+        var finalFileUrl = sertifikat.fileUrl
+
+        if (fileBytes != null && fileName != null) {
+            val media = manageMediaUseCase.uploadMediaBytes("sertifikat", id, fileName, fileBytes)
+            finalFileUrl = media.fileUrl
         }
 
-        return repository.create(sertifikat.copy(dosenId = dosen.id!!, fileUrl = fileUrl))
+        val created = repository.create(sertifikat.copy(id = id, dosenId = dosen.id!!, fileUrl = finalFileUrl))
+        return repository.getById(created.id!!) ?: created
     }
 
     suspend fun update(
-        id: String, userId: String, role: String?, 
-        nama: String?, penerbit: String?, tahun: Int?, 
-        fileBytes: ByteArray?, fileName: String
+        id: String, 
+        userId: String, 
+        role: String?, 
+        sertifikat: Sertifikat,
+        fileBytes: ByteArray?, 
+        fileName: String?
     ): Sertifikat {
-        val existing = repository.getById(id) ?: throw Exception("Not Found")
+        val existing = repository.getById(id) ?: throw Exception("Sertifikat tidak ditemukan")
+        
         if (role != "admin") {
             val dosen = getDosenByUserId(userId)
-            if (existing.dosenId != dosen.id) throw Exception("FORBIDDEN")
+            if (existing.dosenId != dosen.id) throw Exception("FORBIDDEN: Bukan milik Anda")
         }
 
-        var fileUrl = existing.fileUrl
-        if (fileBytes != null && fileBytes.size > 0) {
+        var finalFileUrl = existing.fileUrl
+        if (fileBytes != null && fileName != null) {
+            // HAPUS file lama dari Storage + DB sebelum upload baru
+            manageMediaUseCase.deleteMediaByEntity("sertifikat", id)
+            
             val media = manageMediaUseCase.uploadMediaBytes("sertifikat", id, fileName, fileBytes)
-            fileUrl = media.fileUrl
+            finalFileUrl = media.fileUrl
         }
 
-        val updated = existing.copy(
-            namaSertifikat = nama ?: existing.namaSertifikat,
-            penerbit = penerbit ?: existing.penerbit,
-            tahun = tahun ?: existing.tahun,
-            fileUrl = fileUrl
+        val toUpdate = existing.copy(
+            judulSertifikat = sertifikat.judulSertifikat,
+            tahun = sertifikat.tahun,
+            fileUrl = finalFileUrl
         )
 
-        repository.update(updated)
-        return repository.getById(id)!!
+        repository.update(toUpdate)
+        return repository.getById(id) ?: toUpdate
     }
 
     suspend fun delete(id: String, userId: String, role: String?) {
-        val existing = repository.getById(id) ?: throw Exception("Not Found")
+        val existing = repository.getById(id) ?: throw Exception("Sertifikat tidak ditemukan")
         if (role != "admin") {
             val dosen = getDosenByUserId(userId)
-            if (existing.dosenId != dosen.id) throw Exception("FORBIDDEN")
+            if (existing.dosenId != dosen.id) throw Exception("FORBIDDEN: Bukan milik Anda")
         }
+        
+        manageMediaUseCase.deleteMediaByEntity("sertifikat", id)
         repository.delete(id)
     }
 

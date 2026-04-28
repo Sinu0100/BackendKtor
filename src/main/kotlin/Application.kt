@@ -26,11 +26,11 @@ fun Application.module() {
         null
     }
 
-    // 3. Jalankan Plugins (Pake Try-Catch biar gak mati total)
+    // 3. Jalankan Plugins
     configureHTTP()
     configureMonitoring()
     configureSerialization()
-    configureSecurity() // Ini udah gue bikin anti-crash tadi
+    configureSecurity()
     configureValidation()
     configureStatusPages()
     

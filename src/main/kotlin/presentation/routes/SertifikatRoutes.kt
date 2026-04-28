@@ -12,6 +12,11 @@ fun Route.sertifikatRoutes(controller: SertifikatController) {
         get("/{id}") { controller.getById(call) }
 
         authenticate {
+            get("/my") {
+                call.withRole("dosen") {
+                    controller.getMySertifikat(call)
+                }
+            }
             post {
                 call.withRole("admin", "dosen") {
                     controller.create(call)

@@ -6,57 +6,66 @@ import domain.repository.DosenRepository
 import application.usecase.media.ManageMediaUseCase
 
 class ManageBukuAjarUseCase(
-    private val bukuRepository: BukuAjarRepository,
+    private val repository: BukuAjarRepository,
     private val dosenRepository: DosenRepository,
     private val manageMediaUseCase: ManageMediaUseCase
 ) {
-    suspend fun getAll(): List<BukuAjar> = bukuRepository.getAll()
+    suspend fun getAll(): List<BukuAjar> = repository.getAll()
 
-    suspend fun getById(id: String): BukuAjar? = bukuRepository.getById(id)
+    suspend fun getById(id: String): BukuAjar? = repository.getById(id)
 
     suspend fun getMyBuku(userId: String): List<BukuAjar> {
-        val dosen = dosenRepository.getByUserId(userId) ?: throw Exception("Profil Dosen tidak ditemukan")
-        return bukuRepository.getByDosen(dosen.id!!)
+        val dosen = getDosenByUserId(userId)
+        return repository.getByDosen(dosen.id!!)
+    }
+
+    private fun normalizePeran(peran: String): String {
+        val p = peran.lowercase().trim()
+        return when {
+            p.contains("ketua") -> "Penulis Ketua"
+            p.contains("anggota") -> "Anggota"
+            else -> "Anggota" // Default aman
+        }
     }
 
     suspend fun create(userId: String, buku: BukuAjar): BukuAjar {
-        val dosen = dosenRepository.getByUserId(userId) ?: throw Exception("Profil Dosen tidak ditemukan")
-        return bukuRepository.create(buku.copy(dosenId = dosen.id!!))
+        val dosen = getDosenByUserId(userId)
+        
+        val created = repository.create(buku.copy(
+            dosenId = dosen.id!!,
+            peranPenulis = normalizePeran(buku.peranPenulis)
+        ))
+        return repository.getById(created.id!!) ?: created
     }
 
-    suspend fun update(id: String, userId: String, role: String?, judul: String?, tahun: Int?, deskripsi: String?, peran: String?): BukuAjar {
-        val existing = bukuRepository.getById(id) ?: throw Exception("Data Buku Ajar tidak ditemukan")
+    suspend fun update(id: String, userId: String, role: String?, buku: BukuAjar): BukuAjar {
+        val existing = repository.getById(id) ?: throw Exception("Buku tidak ditemukan")
         
-        // Cek ownership jika bukan admin
         if (role != "admin") {
-            val dosen = dosenRepository.getByUserId(userId) ?: throw Exception("Profil Dosen tidak ditemukan")
-            if (existing.dosenId != dosen.id) {
-                throw Exception("FORBIDDEN: Anda bukan pemilik data ini")
-            }
+            val dosen = getDosenByUserId(userId)
+            if (existing.dosenId != dosen.id) throw Exception("FORBIDDEN: Bukan milik Anda")
         }
 
-        val updated = existing.copy(
-            judul = judul ?: existing.judul,
-            tahun = tahun ?: existing.tahun,
-            deskripsi = deskripsi ?: existing.deskripsi,
-            peranPenulis = peran ?: existing.peranPenulis
+        val toUpdate = existing.copy(
+            judul = buku.judul,
+            tahun = buku.tahun,
+            deskripsi = buku.deskripsi,
+            peranPenulis = normalizePeran(buku.peranPenulis)
         )
-
-        val success = bukuRepository.update(updated)
-        if (!success) throw Exception("Gagal memperbarui data buku ajar")
-        return updated
+        
+        repository.update(toUpdate)
+        return repository.getById(id) ?: toUpdate
     }
 
     suspend fun delete(id: String, userId: String, role: String?) {
-        val existing = bukuRepository.getById(id) ?: throw Exception("Data Buku Ajar tidak ditemukan")
-        
+        val existing = repository.getById(id) ?: throw Exception("Buku tidak ditemukan")
         if (role != "admin") {
-            val dosen = dosenRepository.getByUserId(userId) ?: throw Exception("Profil Dosen tidak ditemukan")
-            if (existing.dosenId != dosen.id) {
-                throw Exception("FORBIDDEN: Anda bukan pemilik data ini")
-            }
+            val dosen = getDosenByUserId(userId)
+            if (existing.dosenId != dosen.id) throw Exception("FORBIDDEN: Bukan milik Anda")
         }
-
-        bukuRepository.delete(id)
+        repository.delete(id)
     }
+
+    private suspend fun getDosenByUserId(userId: String) =
+        dosenRepository.getByUserId(userId) ?: throw Exception("Dosen not found")
 }

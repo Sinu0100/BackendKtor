@@ -89,15 +89,37 @@ class JadwalPerkuliahanController(private val manageUseCase: ManageJadwalPerkuli
 
             val multipart = call.receiveMultipart()
             var namaJadwal: String? = null
+            var fileBytes: ByteArray? = null
+            var fileName: String? = null
 
             multipart.forEachPart { part ->
-                if (part is PartData.FormItem && part.name == "nama_jadwal") {
-                    namaJadwal = part.value
+                when (part) {
+                    is PartData.FormItem -> {
+                        if (part.name == "nama_jadwal") {
+                            namaJadwal = part.value
+                        }
+                    }
+                    is PartData.FileItem -> {
+                        if (part.name == "file") {
+                            val bytes = part.provider().toInputStream().readBytes()
+                            if (bytes.isNotEmpty()) {
+                                fileBytes = bytes
+                                fileName = part.originalFileName ?: "jadwal.pdf"
+                            }
+                        }
+                    }
+                    else -> {}
                 }
                 part.dispose()
             }
             
-            val result = manageUseCase.updateJadwal(id, JadwalPerkuliahan(namaJadwal = namaJadwal ?: "", fileUrl = ""), role)
+            val result = manageUseCase.updateJadwal(
+                id, 
+                JadwalPerkuliahan(namaJadwal = namaJadwal ?: "", fileUrl = ""), 
+                role,
+                fileBytes,
+                fileName
+            )
             call.respond(HttpStatusCode.OK, ApiResponse(true, "Jadwal berhasil diperbarui", result.toResponse()))
         } catch (e: Exception) {
             handleError(call, e)

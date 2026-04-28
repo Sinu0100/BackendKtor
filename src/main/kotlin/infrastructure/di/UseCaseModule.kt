@@ -101,4 +101,8 @@ class UseCaseModule(
             manageMediaUseCase
         )
     }
+
+    val manageKeahlianUseCase by lazy {
+        application.usecase.keahlian.ManageKeahlianUseCase(repositoryModule.keahlianRepository, repositoryModule.dosenRepository)
+    }
 }

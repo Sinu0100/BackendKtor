@@ -57,6 +57,7 @@ dependencies {
     implementation("io.ktor:ktor-server-default-headers-jvm:$ktorVersion")
     implementation("io.ktor:ktor-server-hsts-jvm:$ktorVersion")
     implementation("io.ktor:ktor-server-http-redirect-jvm:$ktorVersion")
+    // Double receive dihapus dulu biar stabil
     
     implementation("org.mindrot:jbcrypt:0.4")
     implementation("ch.qos.logback:logback-classic:1.5.12")

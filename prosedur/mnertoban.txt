@@ -1,0 +1,141 @@
+#include <WiFi.h>
+#include <WebServer.h>
+
+// =========================
+// WIFI HOTSPOT HP
+// =========================
+const char* ssid     = "Bbbb";
+const char* password = "12345678910";
+
+// =========================
+// WEB SERVER
+// =========================
+WebServer server(80);
+
+// =========================
+// PIN RGB LED
+// =========================
+const int PIN_R = 25;
+const int PIN_G = 26;
+const int PIN_B = 27;
+
+// LED indikator WiFi (kuning)
+const int PIN_YELLOW = 33;
+
+// =========================
+// PWM SETTINGS
+// =========================
+const uint32_t PWM_FREQ = 5000;  // 5 kHz
+const uint8_t  PWM_RES   = 8;    // 8-bit: 0..255
+
+// Ubah ke true kalau LED kamu common anode
+const bool COMMON_ANODE = false;
+
+// =========================
+// FUNCTION RGB
+// =========================
+void setRgb(int r, int g, int b) {
+  r = constrain(r, 0, 255);
+  g = constrain(g, 0, 255);
+  b = constrain(b, 0, 255);
+
+  if (COMMON_ANODE) {
+    r = 255 - r;
+    g = 255 - g;
+    b = 255 - b;
+  }
+
+  ledcWrite(PIN_R, r);
+  ledcWrite(PIN_G, g);
+  ledcWrite(PIN_B, b);
+}
+
+// =========================
+// ROUTES
+// =========================
+void handleRoot() {
+  String html = "<html><body style='font-family:Arial'>"
+                "<h2>ESP32 RGB Server</h2>"
+                "<p>Use: <code>/color?r=255&g=0&b=0</code></p>"
+                "<p>Turn off: <code>/off</code></p>"
+                "</body></html>";
+  server.send(200, "text/html", html);
+}
+
+void handleColor() {
+  if (!server.hasArg("r") || !server.hasArg("g") || !server.hasArg("b")) {
+    server.send(400, "text/plain", "Parameter kurang. Contoh: /color?r=255&g=0&b=0");
+    return;
+  }
+
+  int r = server.arg("r").toInt();
+  int g = server.arg("g").toInt();
+  int b = server.arg("b").toInt();
+
+  setRgb(r, g, b);
+
+  String resp = "OK => R=" + String(r) + ", G=" + String(g) + ", B=" + String(b);
+  server.send(200, "text/plain", resp);
+}
+
+void handleOff() {
+  setRgb(0, 0, 0);
+  server.send(200, "text/plain", "LED OFF");
+}
+
+// =========================
+// SETUP
+// =========================
+void setup() {
+  Serial.begin(115200);
+  delay(500);
+
+  // Setup LED indikator
+  pinMode(PIN_YELLOW, OUTPUT);
+  digitalWrite(PIN_YELLOW, LOW);
+
+  // PWM RGB
+  ledcAttach(PIN_R, PWM_FREQ, PWM_RES);
+  ledcAttach(PIN_G, PWM_FREQ, PWM_RES);
+  ledcAttach(PIN_B, PWM_FREQ, PWM_RES);
+
+  setRgb(0, 0, 0);
+
+  // WiFi connect
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(ssid, password);
+
+  Serial.print("Menghubungkan ke WiFi");
+
+  // LED kedip saat connecting
+  while (WiFi.status() != WL_CONNECTED) {
+    digitalWrite(PIN_YELLOW, HIGH);
+    delay(250);
+    digitalWrite(PIN_YELLOW, LOW);
+    delay(250);
+    Serial.print(".");
+  }
+
+  // LED nyala tetap saat connect
+  digitalWrite(PIN_YELLOW, HIGH);
+
+  Serial.println();
+  Serial.println("WiFi tersambung");
+  Serial.print("IP ESP32: ");
+  Serial.println(WiFi.localIP());
+
+  // Routes
+  server.on("/", handleRoot);
+  server.on("/color", handleColor);
+  server.on("/off", handleOff);
+
+  server.begin();
+  Serial.println("Web server aktif");
+}
+
+// =========================
+// LOOP
+// =========================
+void loop() {
+  server.handleClient();
+}

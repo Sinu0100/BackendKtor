@@ -32,6 +32,9 @@ fun Application.configureStatusPages() {
 
         // Handle General Exception
         exception<Throwable> { call, cause ->
+            // Print stacktrace ke terminal biar kita tau baris mana yang meledak!
+            cause.printStackTrace() 
+
             val status = when {
                 cause.message?.contains("FORBIDDEN", ignoreCase = true) == true -> HttpStatusCode.Forbidden
                 cause.message?.contains("Unauthorized", ignoreCase = true) == true -> HttpStatusCode.Unauthorized
@@ -43,7 +46,7 @@ fun Application.configureStatusPages() {
                 status,
                 ApiResponse<Unit>(
                     success = false,
-                    message = cause.message ?: "Terjadi kesalahan internal"
+                    message = cause.message ?: "Terjadi kesalahan internal: ${cause.javaClass.simpleName}"
                 )
             )
         }

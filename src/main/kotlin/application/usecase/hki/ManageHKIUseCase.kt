@@ -4,6 +4,7 @@ import domain.model.HKI
 import domain.repository.HKIRepository
 import domain.repository.DosenRepository
 import application.usecase.media.ManageMediaUseCase
+import java.util.UUID
 
 class ManageHKIUseCase(
     private val repository: HKIRepository,
@@ -14,22 +15,43 @@ class ManageHKIUseCase(
 
     suspend fun getById(id: String): HKI? = repository.getById(id)
 
-    suspend fun create(userId: String, hki: HKI, fileBytes: ByteArray?, fileName: String): HKI {
+    suspend fun getMyHKI(userId: String): List<HKI> {
         val dosen = getDosenByUserId(userId)
-        var fileUrl = hki.fileUrl
+        // FIX: Menggunakan nama fungsi yang benar sesuai interface HKIRepository
+        return repository.getAllByDosenId(dosen.id!!)
+    }
+
+    suspend fun create(userId: String, hki: HKI, fileBytes: ByteArray?, fileName: String?): HKI {
+        val dosen = getDosenByUserId(userId)
         
-        if (fileBytes != null && fileBytes.size > 0) {
-            val media = manageMediaUseCase.uploadMediaBytes("hki", "temp", fileName, fileBytes)
-            fileUrl = media.fileUrl
+        // Normalisasi jenis_hki agar sesuai dengan CHECK constraint database (Misal: 'hak cipta' -> 'Hak Cipta')
+        val normalizedJenisHki = hki.jenisHki?.split(" ")?.joinToString(" ") { it.lowercase().replaceFirstChar { char -> char.uppercase() } }
+
+        val id = UUID.randomUUID().toString()
+        var finalFileUrl = hki.fileUrl
+
+        if (fileBytes != null && fileName != null) {
+            // Kita gunakan tipe 'hki' (pastikan sudah ditambah di database lewat SQL di atas)
+            val media = manageMediaUseCase.uploadMediaBytes("hki", id, fileName, fileBytes)
+            finalFileUrl = media.fileUrl
         }
 
-        return repository.create(hki.copy(dosenId = dosen.id!!, fileUrl = fileUrl))
+        val created = repository.create(hki.copy(
+            id = id, 
+            dosenId = dosen.id!!, 
+            fileUrl = finalFileUrl,
+            jenisHki = normalizedJenisHki
+        ))
+        return repository.getById(created.id!!) ?: created
     }
 
     suspend fun update(
-        id: String, userId: String, role: String?, 
-        judul: String?, tahun: Int?, deskripsi: String?, 
-        fileBytes: ByteArray?, fileName: String
+        id: String, 
+        userId: String, 
+        role: String?, 
+        hki: HKI,
+        fileBytes: ByteArray?, 
+        fileName: String?
     ): HKI {
         val existing = repository.getById(id) ?: throw Exception("HKI tidak ditemukan")
         
@@ -38,21 +60,26 @@ class ManageHKIUseCase(
             if (existing.dosenId != dosen.id) throw Exception("FORBIDDEN: Bukan milik Anda")
         }
 
-        var fileUrl = existing.fileUrl
-        if (fileBytes != null && fileBytes.size > 0) {
+        var finalFileUrl = existing.fileUrl
+        if (fileBytes != null && fileName != null) {
+            // HAPUS file lama dari Storage + DB sebelum upload baru
+            manageMediaUseCase.deleteMediaByEntity("hki", id)
+            
             val media = manageMediaUseCase.uploadMediaBytes("hki", id, fileName, fileBytes)
-            fileUrl = media.fileUrl
+            finalFileUrl = media.fileUrl
         }
 
-        val updated = existing.copy(
-            judul = judul ?: existing.judul,
-            tahun = tahun ?: existing.tahun,
-            deskripsi = deskripsi ?: existing.deskripsi,
-            fileUrl = fileUrl
+        val toUpdate = existing.copy(
+            judulInvensi = hki.judulInvensi,
+            inventor = hki.inventor,
+            jenisHki = hki.jenisHki,
+            nomorPaten = hki.nomorPaten,
+            tahun = hki.tahun,
+            fileUrl = finalFileUrl
         )
 
-        repository.update(updated)
-        return repository.getById(id)!!
+        repository.update(toUpdate)
+        return repository.getById(id) ?: toUpdate
     }
 
     suspend fun delete(id: String, userId: String, role: String?) {
@@ -62,9 +89,7 @@ class ManageHKIUseCase(
             if (existing.dosenId != dosen.id) throw Exception("FORBIDDEN: Bukan milik Anda")
         }
         
-        // Opsional: hapus media terkait
         manageMediaUseCase.deleteMediaByEntity("hki", id)
-
         repository.delete(id)
     }
 

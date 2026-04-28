@@ -12,6 +12,11 @@ fun Route.bukuAjarRoutes(controller: BukuAjarController) {
         get("/{id}") { controller.getById(call) }
 
         authenticate {
+            get("/my") {
+                call.withRole("dosen") {
+                    controller.getMyBuku(call)
+                }
+            }
             post {
                 call.withRole("admin", "dosen") {
                     controller.create(call)

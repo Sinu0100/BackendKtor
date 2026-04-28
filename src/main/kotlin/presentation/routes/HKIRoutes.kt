@@ -9,9 +9,14 @@ import presentation.controller.HKIController
 fun Route.hkiRoutes(controller: HKIController) {
     route("/hki") {
         get { controller.getAll(call) }
-        get("/{id}") { controller.getById(call) }
-
+        
         authenticate {
+            get("/my") {
+                call.withRole("admin", "dosen") {
+                    controller.getMyHKI(call)
+                }
+            }
+            get("/{id}") { controller.getById(call) }
             post {
                 call.withRole("admin", "dosen") {
                     controller.create(call)

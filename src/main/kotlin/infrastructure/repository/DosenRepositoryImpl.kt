@@ -72,8 +72,22 @@ class DosenRepositoryImpl : DosenRepository {
             dosen.noHp?.let { put("no_hp", it) }
             dosen.fotoUrl?.let { put("foto_url", it) }
         }
-        val result = tableDosen.insert(content) { select() }.decodeSingle<Dosen>()
+        val response = tableDosen.insert(content) { select() }
+        val result = response.decodeSingle<Dosen>()
         return result.id!!
+    }
+
+    override suspend fun insertUser(email: String, passwordHash: String, nama: String, role: String): String {
+        val content = buildJsonObject {
+            put("email", email)
+            put("password_hash", passwordHash)
+            put("nama", nama)
+            put("role", role)
+        }
+        // Gunakan decodeSingle agar otomatis mengambil objek pertama dari array response Supabase
+        val response = tableUsers.insert(content) { select() }
+        val result = response.decodeSingle<JsonObject>()
+        return result["id"]?.jsonPrimitive?.content ?: throw Exception("Gagal mendapatkan User ID")
     }
 
     override suspend fun update(dosen: Dosen): Boolean {

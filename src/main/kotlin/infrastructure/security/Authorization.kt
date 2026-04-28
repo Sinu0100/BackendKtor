@@ -10,55 +10,62 @@ import com.auth0.jwt.JWT
 
 object SecurityUtils {
     fun getRole(call: ApplicationCall): String? {
-        // 1. Coba cara resmi Ktor
-        val principal = call.principal<JWTPrincipal>()
-        val role = principal?.payload?.getClaim("role")?.asString()
-        if (role != null) return role
+        return try {
+            // 1. Ambil principal resmi
+            val principal = call.principal<JWTPrincipal>()
+            val role = principal?.payload?.getClaim("role")?.asString()
+            if (role != null) return role
 
-        // 2. Cara Brute-force (Bongkar Header Manual)
-        try {
-            val authHeader = call.request.headers["Authorization"]
-            if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            // 2. Fallback manual (Ambil header pertama saja untuk menghindari ParseException)
+            val authHeaders = call.request.headers.getAll("Authorization")
+            val authHeader = authHeaders?.firstOrNull() 
+            
+            if (authHeader != null && authHeader.startsWith("Bearer ", ignoreCase = true)) {
                 val token = authHeader.substringAfter("Bearer ")
                 val decoded = JWT.decode(token)
-                return decoded.getClaim("role").asString()
-            }
+                decoded.getClaim("role").asString()
+            } else null
         } catch (e: Exception) {
-            e.printStackTrace()
+            println("DEBUG Security: Gagal ambil Role - ${e.message}")
+            null
         }
-        return null
     }
 
     fun getUserId(call: ApplicationCall): String? {
-        val principal = call.principal<JWTPrincipal>()
-        val userId = principal?.payload?.getClaim("userId")?.asString()
-        if (userId != null) return userId
+        return try {
+            val principal = call.principal<JWTPrincipal>()
+            val userId = principal?.payload?.getClaim("userId")?.asString()
+            if (userId != null) return userId
 
-        try {
-            val authHeader = call.request.headers["Authorization"]
-            if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            val authHeaders = call.request.headers.getAll("Authorization")
+            val authHeader = authHeaders?.firstOrNull()
+
+            if (authHeader != null && authHeader.startsWith("Bearer ", ignoreCase = true)) {
                 val token = authHeader.substringAfter("Bearer ")
                 val decoded = JWT.decode(token)
-                return decoded.getClaim("userId").asString()
-            }
+                decoded.getClaim("userId").asString()
+            } else null
         } catch (e: Exception) {
-            e.printStackTrace()
+            println("DEBUG Security: Gagal ambil UserId - ${e.message}")
+            null
         }
-        return null
     }
 }
 
 suspend inline fun ApplicationCall.withRole(vararg roles: String, crossinline block: suspend () -> Unit) {
     val role = SecurityUtils.getRole(this)
-    
-    if (role?.lowercase() in roles.map { it.lowercase() }) {
+    val userId = SecurityUtils.getUserId(this)
+
+    if (role != null && role.lowercase() in roles.map { it.lowercase() }) {
         block()
     } else {
+        println("AUTH FAILED: Role '$role' tidak diijinkan akses (Butuh: ${roles.joinToString()})")
         respond(
             HttpStatusCode.Forbidden, 
             ApiResponse<Unit>(
                 success = false, 
-                message = "Akses ditolak: Anda memiliki role '$role', tapi butuh (${roles.joinToString()})"
+                message = if (role == null) "Token tidak valid atau tidak terbaca. Pastikan header Authorization benar." 
+                          else "Akses ditolak: Role '$role' tidak memiliki ijin."
             )
         )
     }

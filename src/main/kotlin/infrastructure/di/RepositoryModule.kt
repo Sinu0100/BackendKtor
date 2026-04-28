@@ -51,4 +51,8 @@ class RepositoryModule {
     val sertifikatRepository: SertifikatRepository by lazy {
         SertifikatRepositoryImpl()
     }
+
+    val keahlianRepository: KeahlianRepository by lazy {
+        KeahlianRepositoryImpl()
+    }
 }

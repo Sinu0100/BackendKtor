@@ -8,7 +8,7 @@ import presentation.controller.DosenController
 
 fun Route.dosenRoutes(dosenController: DosenController) {
     route("/dosen") {
-        // Public: Siapa saja bisa lihat daftar dan detail dosen
+            // Public: Siapa saja bisa lihat daftar dan detail dosen
         get {
             dosenController.getAllDosen(call)
         }
@@ -18,6 +18,9 @@ fun Route.dosenRoutes(dosenController: DosenController) {
 
         // Admin Only (Dikelola oleh Admin)
         authenticate {
+            get("/me") {
+                dosenController.getProfileMe(call)
+            }
             post {
                 call.withRole("admin") {
                     dosenController.createDosen(call)

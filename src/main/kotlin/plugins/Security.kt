@@ -16,8 +16,14 @@ fun Application.configureSecurity() {
     val jwtSecret = environment.config.property("jwt.secret").getString()
     
     val finalSecret = try {
-        Base64.getDecoder().decode(jwtSecret)
+        if (jwtSecret.contains("-") || jwtSecret.contains("_") || jwtSecret.length < 20) {
+            // Jika secret pendek atau ada karakter non-base64, pake raw bytes
+            jwtSecret.toByteArray()
+        } else {
+            Base64.getDecoder().decode(jwtSecret)
+        }
     } catch (e: Exception) {
+        println("WARNING: JWT Secret bukan Base64, menggunakan raw bytes. Error: ${e.message}")
         jwtSecret.toByteArray()
     }
 
@@ -31,17 +37,19 @@ fun Application.configureSecurity() {
                     .build()
             )
             validate { credential ->
-                // Selama role ada di token, kita terima. Audience kita abaikan dulu biar gak rewel.
                 val role = credential.payload.getClaim("role").asString()
                 if (role != null) {
                     JWTPrincipal(credential.payload)
                 } else null
             }
-            challenge { _, _ ->
-                call.respond(
-                    HttpStatusCode.Unauthorized, 
-                    ApiResponse<Unit>(success = false, message = "Token tidak valid atau kadaluwarsa. Pastikan JWT Secret di server benar.")
-                )
+            challenge { defaultScheme, realm ->
+                val authHeader = call.request.headers["Authorization"]
+                val response = when {
+                    authHeader == null -> ApiResponse<Unit>(false, "Header Authorization (Bearer Token) tidak ditemukan")
+                    !authHeader.startsWith("Bearer ", ignoreCase = true) -> ApiResponse<Unit>(false, "Format token salah. Gunakan 'Bearer <token>'")
+                    else -> ApiResponse<Unit>(false, "Token tidak valid, expired, atau Secret server tidak cocok.")
+                }
+                call.respond(HttpStatusCode.Unauthorized, response)
             }
         }
     }

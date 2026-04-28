@@ -10,6 +10,15 @@ class MediaRepositoryImpl : MediaRepository {
     private val client = SupabaseConfig.getClient()
     private val table = client.postgrest[MediaTable.TABLE_NAME]
 
+    override suspend fun getById(id: String): Media? {
+        return try {
+            table.select {
+                filter { eq(MediaTable.ID, id) }
+            }.decodeSingleOrNull<Media>()
+        } catch (e: Exception) {
+            null
+        }
+    }
     override suspend fun getByEntity(entityType: String, entityId: String): List<Media> {
         return table.select {
             filter {

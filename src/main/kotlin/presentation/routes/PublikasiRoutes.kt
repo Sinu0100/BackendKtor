@@ -9,9 +9,14 @@ import presentation.controller.PublikasiController
 fun Route.publikasiRoutes(controller: PublikasiController) {
     route("/publikasi") {
         get { controller.getAllPublikasi(call) }
-        get("/{id}") { controller.getById(call) }
-
+        
         authenticate {
+            get("/my") {
+                call.withRole("admin", "dosen") {
+                    controller.getMyPublikasi(call)
+                }
+            }
+            get("/{id}") { controller.getById(call) }
             post {
                 call.withRole("admin", "dosen") {
                     controller.createPublikasi(call)

@@ -24,10 +24,12 @@ data class Penelitian(
 
 @Serializable
 data class PenelitianAnggota(
-    val id: String? = null,
+    val id: Int? = null, // Fix: ID di DB itu Serial (Int)
     @SerialName("penelitian_id")
     val penelitianId: String? = null,
     @SerialName("dosen_id")
     val dosenId: String,
-    val peran: String
+    val peran: String,
+    @Transient // Kita isi manual dari hasil JOIN
+    val namaDosen: String = ""
 )

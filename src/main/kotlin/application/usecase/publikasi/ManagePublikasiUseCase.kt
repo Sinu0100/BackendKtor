@@ -21,7 +21,8 @@ class ManagePublikasiUseCase(
 
     suspend fun create(userId: String, publikasi: Publikasi): Publikasi {
         val dosen = getDosenByUserId(userId)
-        return repository.create(publikasi.copy(dosenId = dosen.id!!))
+        val created = repository.create(publikasi.copy(dosenId = dosen.id!!))
+        return repository.getById(created.id!!) ?: created
     }
 
     suspend fun update(id: String, userId: String, role: String?, publikasi: Publikasi): Publikasi {
@@ -32,8 +33,16 @@ class ManagePublikasiUseCase(
             if (existing.dosenId != dosen.id) throw Exception("FORBIDDEN: Bukan milik Anda")
         }
 
-        repository.update(publikasi.copy(id = id, dosenId = existing.dosenId))
-        return repository.getById(id)!!
+        val toUpdate = existing.copy(
+            judul = publikasi.judul,
+            namaJurnalKonferensi = publikasi.namaJurnalKonferensi,
+            deskripsi = publikasi.deskripsi,
+            linkTautan = publikasi.linkTautan,
+            tahun = publikasi.tahun
+        )
+        
+        repository.update(toUpdate)
+        return repository.getById(id) ?: toUpdate
     }
 
     suspend fun delete(id: String, userId: String, role: String?) {

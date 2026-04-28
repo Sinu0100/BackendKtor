@@ -10,59 +10,70 @@ class ManagePengabdianUseCase(
     private val dosenRepository: DosenRepository,
     private val manageMediaUseCase: ManageMediaUseCase
 ) {
-    suspend fun getAll(): List<Pengabdian> {
-        return repository.getAll().map { 
-            it.copy(media = manageMediaUseCase.getMediaByEntity("pengabdian", it.id!!))
-        }
-    }
+    suspend fun getAll(): List<Pengabdian> = repository.getAll()
 
-    suspend fun getById(id: String): Pengabdian? {
-        val data = repository.getById(id) ?: return null
-        return data.copy(media = manageMediaUseCase.getMediaByEntity("pengabdian", id))
-    }
+    suspend fun getById(id: String): Pengabdian? = repository.getById(id)
 
-    suspend fun createWithMedia(userId: String, pengabdian: Pengabdian, files: List<Pair<String, ByteArray>>): Pengabdian {
+    suspend fun getMyPengabdian(userId: String): List<Pengabdian> {
         val dosen = getDosenByUserId(userId)
+        return repository.getByDosen(dosen.id!!)
+    }
+
+    suspend fun createWithMedia(
+        userId: String, 
+        pengabdian: Pengabdian, 
+        files: List<Pair<String, ByteArray>>
+    ): Pengabdian {
+        val dosen = getDosenByUserId(userId)
+        
+        // 1. Simpan data utama
         val created = repository.create(pengabdian.copy(dosenId = dosen.id!!))
-        
-        files.forEach { (name, bytes) ->
-            manageMediaUseCase.uploadMediaBytes("pengabdian", created.id!!, name, bytes)
+
+        // 2. Upload file media (bisa banyak)
+        files.forEach { (fileName, bytes) ->
+            manageMediaUseCase.uploadMediaBytes("pengabdian", created.id!!, fileName, bytes)
         }
-        
-        return getById(created.id!!)!!
+
+        return repository.getById(created.id!!) ?: created
     }
 
     suspend fun updateWithMedia(
-        id: String, userId: String, role: String?, 
-        judul: String?, deskripsi: String?, tahun: Int?, 
+        id: String, 
+        userId: String, 
+        role: String?, 
+        pengabdian: Pengabdian,
         files: List<Pair<String, ByteArray>>
     ): Pengabdian {
-        val existing = repository.getById(id) ?: throw Exception("Not Found")
+        val existing = repository.getById(id) ?: throw Exception("Pengabdian tidak ditemukan")
+        
         if (role != "admin") {
             val dosen = getDosenByUserId(userId)
-            if (existing.dosenId != dosen.id) throw Exception("FORBIDDEN")
+            if (existing.dosenId != dosen.id) throw Exception("FORBIDDEN: Bukan milik Anda")
         }
 
-        val updated = existing.copy(
-            judul = judul ?: existing.judul,
-            deskripsi = deskripsi ?: existing.deskripsi,
-            tahun = tahun ?: existing.tahun
+        val toUpdate = existing.copy(
+            judulPengabdian = pengabdian.judulPengabdian,
+            deskripsi = pengabdian.deskripsi,
+            tahun = pengabdian.tahun
         )
-        repository.update(updated)
+        
+        repository.update(toUpdate)
 
-        files.forEach { (name, bytes) ->
-            manageMediaUseCase.uploadMediaBytes("pengabdian", id, name, bytes)
+        // Upload file baru kalau ada
+        files.forEach { (fileName, bytes) ->
+            manageMediaUseCase.uploadMediaBytes("pengabdian", id, fileName, bytes)
         }
 
-        return getById(id)!!
+        return repository.getById(id) ?: toUpdate
     }
 
     suspend fun delete(id: String, userId: String, role: String?) {
-        val existing = repository.getById(id) ?: throw Exception("Not Found")
+        val existing = repository.getById(id) ?: throw Exception("Pengabdian tidak ditemukan")
         if (role != "admin") {
             val dosen = getDosenByUserId(userId)
-            if (existing.dosenId != dosen.id) throw Exception("FORBIDDEN")
+            if (existing.dosenId != dosen.id) throw Exception("FORBIDDEN: Bukan milik Anda")
         }
+
         manageMediaUseCase.deleteMediaByEntity("pengabdian", id)
         repository.delete(id)
     }

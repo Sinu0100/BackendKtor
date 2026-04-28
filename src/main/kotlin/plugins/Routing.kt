@@ -18,6 +18,8 @@ fun Application.configureRouting(appComponent: AppComponent) {
     val hkiController = appComponent.controllerModule.hkiController
     val bukuAjarController = appComponent.controllerModule.bukuAjarController
     val sertifikatController = appComponent.controllerModule.sertifikatController
+    val keahlianController = appComponent.controllerModule.keahlianController
+    val mediaController = appComponent.controllerModule.mediaController
 
     routing {
         route("/api/v1") {
@@ -33,6 +35,8 @@ fun Application.configureRouting(appComponent: AppComponent) {
             hkiRoutes(hkiController)
             bukuAjarRoutes(bukuAjarController)
             sertifikatRoutes(sertifikatController)
+            keahlianRoutes(keahlianController)
+            mediaRoutes(mediaController)
         }
     }
 }

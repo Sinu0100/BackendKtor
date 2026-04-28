@@ -20,15 +20,25 @@ class SertifikatController(private val useCase: ManageSertifikatUseCase) {
     private fun Sertifikat.toResponse() = SertifikatResponse(
         id = this.id ?: "",
         dosen_id = this.dosenId,
-        nama_sertifikat = this.namaSertifikat,
-        penerbit = this.penerbit ?: "",
+        judul_sertifikat = this.judulSertifikat,
         tahun = this.tahun,
-        file_url = this.fileUrl
+        file_url = this.fileUrl,
+        created_at = this.createdAt
     )
 
     suspend fun getAll(call: ApplicationCall) {
         try {
             val result = useCase.getAll()
+            call.respond(HttpStatusCode.OK, ApiResponse(true, "Berhasil", result.map { it.toResponse() }))
+        } catch (e: Exception) {
+            handleError(call, e)
+        }
+    }
+
+    suspend fun getMySertifikat(call: ApplicationCall) {
+        try {
+            val userId = getUserId(call)
+            val result = useCase.getMySertifikat(userId)
             call.respond(HttpStatusCode.OK, ApiResponse(true, "Berhasil", result.map { it.toResponse() }))
         } catch (e: Exception) {
             handleError(call, e)
@@ -50,31 +60,41 @@ class SertifikatController(private val useCase: ManageSertifikatUseCase) {
             val userId = getUserId(call)
             val multipart = call.receiveMultipart()
 
-            var nama = ""
-            var penerbit = ""
+            var judulSertifikat = ""
             var tahun: Int? = null
             var fileBytes: ByteArray? = null
-            var fileName = ""
+            var fileName: String? = null
 
             multipart.forEachPart { part ->
                 when (part) {
                     is PartData.FormItem -> {
-                        when (part.name) {
-                            "nama_sertifikat" -> nama = part.value.trim()
-                            "penerbit" -> penerbit = part.value.trim()
-                            "tahun" -> tahun = part.value.trim().toIntOrNull()
+                        val value = part.value.trim()
+                        if (value.isNotEmpty()) {
+                            when (part.name) {
+                                "judul_sertifikat" -> judulSertifikat = value
+                                "tahun" -> {
+                                    val t = value.toIntOrNull()
+                                    if (t == null || t !in 1900..2100) throw IllegalArgumentException("Tahun tidak valid (1900-2100)")
+                                    tahun = t
+                                }
+                            }
                         }
                     }
                     is PartData.FileItem -> {
-                        fileBytes = part.provider().toInputStream().readBytes()
-                        fileName = part.originalFileName ?: "sertifikat.pdf"
+                        val bytes = part.provider().toInputStream().readBytes()
+                        if (bytes.isNotEmpty()) {
+                            fileBytes = bytes
+                            fileName = part.originalFileName
+                        }
                     }
                     else -> {}
                 }
                 part.dispose()
             }
 
-            val sertifikat = Sertifikat(dosenId = "", namaSertifikat = nama, penerbit = penerbit, tahun = tahun)
+            if (judulSertifikat.isEmpty()) throw Exception("Judul sertifikat wajib diisi")
+
+            val sertifikat = Sertifikat(dosenId = "", judulSertifikat = judulSertifikat, tahun = tahun)
             val result = useCase.create(userId, sertifikat, fileBytes, fileName)
             call.respond(HttpStatusCode.Created, ApiResponse(true, "Berhasil", result.toResponse()))
         } catch (e: Exception) {
@@ -89,26 +109,24 @@ class SertifikatController(private val useCase: ManageSertifikatUseCase) {
             val role = getRole(call)
             val multipart = call.receiveMultipart()
 
-            var nama: String? = null
-            var penerbit: String? = null
+            var judulSertifikat: String? = null
             var tahun: Int? = null
             var fileBytes: ByteArray? = null
-            var fileName = ""
+            var fileName: String? = null
 
             multipart.forEachPart { part ->
                 when (part) {
                     is PartData.FormItem -> {
                         when (part.name) {
-                            "nama_sertifikat" -> nama = part.value.trim()
-                            "penerbit" -> penerbit = part.value.trim()
+                            "judul_sertifikat" -> judulSertifikat = part.value.trim().takeIf { it.isNotEmpty() }
                             "tahun" -> tahun = part.value.trim().toIntOrNull()
                         }
                     }
                     is PartData.FileItem -> {
                         val bytes = part.provider().toInputStream().readBytes()
-                        if (bytes.size > 0) {
+                        if (bytes.isNotEmpty()) {
                             fileBytes = bytes
-                            fileName = part.originalFileName ?: "sertifikat_update.pdf"
+                            fileName = part.originalFileName
                         }
                     }
                     else -> {}
@@ -116,8 +134,14 @@ class SertifikatController(private val useCase: ManageSertifikatUseCase) {
                 part.dispose()
             }
 
-            val result = useCase.update(id, userId, role, nama, penerbit, tahun, fileBytes, fileName)
-            call.respond(HttpStatusCode.OK, ApiResponse(true, "Berhasil", result.toResponse()))
+            val existing = useCase.getById(id) ?: throw Exception("Data tidak ditemukan")
+            val toUpdate = existing.copy(
+                judulSertifikat = judulSertifikat ?: existing.judulSertifikat,
+                tahun = tahun ?: existing.tahun
+            )
+
+            val result = useCase.update(id, userId, role, toUpdate, fileBytes, fileName)
+            call.respond(HttpStatusCode.OK, ApiResponse(true, "Berhasil diperbarui", result.toResponse()))
         } catch (e: Exception) {
             handleError(call, e)
         }
@@ -129,13 +153,19 @@ class SertifikatController(private val useCase: ManageSertifikatUseCase) {
             val userId = getUserId(call)
             val role = getRole(call)
             useCase.delete(id, userId, role)
-            call.respond(HttpStatusCode.OK, ApiResponse<Unit>(true, "Berhasil"))
+            call.respond(HttpStatusCode.OK, ApiResponse<Unit>(true, "Berhasil dihapus"))
         } catch (e: Exception) {
             handleError(call, e)
         }
     }
 
     private suspend fun handleError(call: ApplicationCall, e: Exception) {
-        call.respond(HttpStatusCode.BadRequest, ApiResponse<Unit>(false, e.message ?: "Error"))
+        val status = when {
+            e is IllegalArgumentException -> HttpStatusCode.BadRequest
+            e.message?.contains("FORBIDDEN", ignoreCase = true) == true -> HttpStatusCode.Forbidden
+            e.message?.contains("Unauthorized", ignoreCase = true) == true -> HttpStatusCode.Unauthorized
+            else -> HttpStatusCode.BadRequest
+        }
+        call.respond(status, ApiResponse<Unit>(false, e.message ?: "Terjadi kesalahan"))
     }
 }

@@ -10,5 +10,5 @@ class AppComponent(environment: ApplicationEnvironment) {
     
     val repositoryModule = RepositoryModule()
     val useCaseModule = UseCaseModule(repositoryModule, jwtService, storageService)
-    val controllerModule = ControllerModule(useCaseModule)
+    val controllerModule = ControllerModule(useCaseModule, repositoryModule)
 }

@@ -12,6 +12,9 @@ fun Route.penelitianRoutes(controller: PenelitianController) {
         get("/{id}") { controller.getById(call) }
 
         authenticate {
+            get("/my") {
+                controller.getMyPenelitian(call)
+            }
             post {
                 call.withRole("admin", "dosen") {
                     controller.create(call)

@@ -22,7 +22,8 @@ class BukuAjarController(private val useCase: ManageBukuAjarUseCase) {
         judul = this.judul,
         tahun = this.tahun,
         deskripsi = this.deskripsi ?: "",
-        peran_penulis = this.peranPenulis ?: ""
+        peran_penulis = this.peranPenulis,
+        created_at = this.createdAt
     )
 
     suspend fun getAll(call: ApplicationCall) {
@@ -34,10 +35,20 @@ class BukuAjarController(private val useCase: ManageBukuAjarUseCase) {
         }
     }
 
+    suspend fun getMyBuku(call: ApplicationCall) {
+        try {
+            val userId = getUserId(call)
+            val result = useCase.getMyBuku(userId)
+            call.respond(HttpStatusCode.OK, ApiResponse(true, "Berhasil", result.map { it.toResponse() }))
+        } catch (e: Exception) {
+            handleError(call, e)
+        }
+    }
+
     suspend fun getById(call: ApplicationCall) {
         try {
             val id = call.parameters["id"] ?: throw Exception("ID diperlukan")
-            val result = useCase.getById(id) ?: return call.respond(HttpStatusCode.NotFound, ApiResponse<Unit>(false, "Not Found"))
+            val result = useCase.getById(id) ?: return call.respond(HttpStatusCode.NotFound, ApiResponse<Unit>(false, "Data tidak ditemukan"))
             call.respond(HttpStatusCode.OK, ApiResponse(true, "Berhasil", result.toResponse()))
         } catch (e: Exception) {
             handleError(call, e)
@@ -52,15 +63,22 @@ class BukuAjarController(private val useCase: ManageBukuAjarUseCase) {
             var judul = ""
             var tahun: Int? = null
             var deskripsi: String? = null
-            var peran: String? = null
+            var peran = "Anggota"
 
             multipart.forEachPart { part ->
                 if (part is PartData.FormItem) {
                     when (part.name) {
                         "judul" -> judul = part.value.trim()
-                        "tahun" -> tahun = part.value.trim().toIntOrNull()
+                        "tahun" -> {
+                            val t = part.value.trim().toIntOrNull()
+                            if (t == null || t !in 1900..2100) throw IllegalArgumentException("Tahun tidak valid (1900-2100)")
+                            tahun = t
+                        }
                         "deskripsi" -> deskripsi = part.value.trim()
-                        "peran_penulis" -> peran = part.value.trim()
+                        "peran_penulis" -> {
+                            val v = part.value.trim()
+                            if (v.isNotEmpty()) peran = v
+                        }
                     }
                 }
                 part.dispose()
@@ -68,7 +86,13 @@ class BukuAjarController(private val useCase: ManageBukuAjarUseCase) {
 
             if (judul.isEmpty()) throw Exception("Judul wajib diisi")
             
-            val buku = BukuAjar(dosenId = "", judul = judul, tahun = tahun, deskripsi = deskripsi, peranPenulis = peran)
+            val buku = BukuAjar(
+                dosenId = "", 
+                judul = judul, 
+                tahun = tahun, 
+                deskripsi = deskripsi, 
+                peranPenulis = peran
+            )
             val result = useCase.create(userId, buku)
             call.respond(HttpStatusCode.Created, ApiResponse(true, "Berhasil", result.toResponse()))
         } catch (e: Exception) {
@@ -91,16 +115,24 @@ class BukuAjarController(private val useCase: ManageBukuAjarUseCase) {
             multipart.forEachPart { part ->
                 if (part is PartData.FormItem) {
                     when (part.name) {
-                        "judul" -> judul = part.value.trim()
+                        "judul" -> judul = part.value.trim().takeIf { it.isNotEmpty() }
                         "tahun" -> tahun = part.value.trim().toIntOrNull()
-                        "deskripsi" -> deskripsi = part.value.trim()
-                        "peran_penulis" -> peran = part.value.trim()
+                        "deskripsi" -> deskripsi = part.value.trim().takeIf { it.isNotEmpty() }
+                        "peran_penulis" -> peran = part.value.trim().takeIf { it.isNotEmpty() }
                     }
                 }
                 part.dispose()
             }
 
-            val result = useCase.update(id, userId, role, judul, tahun, deskripsi, peran)
+            val existing = useCase.getById(id) ?: throw Exception("Data tidak ditemukan")
+            val toUpdate = existing.copy(
+                judul = judul ?: existing.judul,
+                tahun = tahun ?: existing.tahun,
+                deskripsi = deskripsi ?: existing.deskripsi,
+                peranPenulis = peran ?: existing.peranPenulis
+            )
+
+            val result = useCase.update(id, userId, role, toUpdate)
             call.respond(HttpStatusCode.OK, ApiResponse(true, "Berhasil diperbarui", result.toResponse()))
         } catch (e: Exception) {
             handleError(call, e)
@@ -120,6 +152,12 @@ class BukuAjarController(private val useCase: ManageBukuAjarUseCase) {
     }
 
     private suspend fun handleError(call: ApplicationCall, e: Exception) {
-        call.respond(HttpStatusCode.BadRequest, ApiResponse<Unit>(false, e.message ?: "Error"))
+        val status = when {
+            e is IllegalArgumentException -> HttpStatusCode.BadRequest
+            e.message?.contains("FORBIDDEN", ignoreCase = true) == true -> HttpStatusCode.Forbidden
+            e.message?.contains("Unauthorized", ignoreCase = true) == true -> HttpStatusCode.Unauthorized
+            else -> HttpStatusCode.BadRequest
+        }
+        call.respond(status, ApiResponse<Unit>(false, e.message ?: "Terjadi kesalahan"))
     }
 }
